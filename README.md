@@ -11,9 +11,9 @@
 
 ## Статус
 
-**v0.3.0 — схема базы.** Сервис поднимается и подключается к PostgreSQL,
-схема накатывается миграциями, справочник жанров залит. Треков пока нет:
-следующий шаг — импорт из файла.
+**v0.4.0 — импорт из файла.** Треки загружаются из `.json` или `.csv`,
+грязные строки нормализуются, дубли схлопываются. Жанров пока нет:
+следующий шаг — непрерывная сборка, а за ней источник ВК и обогащение.
 
 Дорожная карта до релиза — в [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -40,7 +40,10 @@ docker compose ps
 go run ./cmd/music db up
 go run ./cmd/music seed genres
 
-# 6. Запустить сервис
+# 6. Загрузить пример треков
+go run ./cmd/music import file data/samples/sample_tracks.json --library "Рус-Лан"
+
+# 7. Запустить сервис
 go run ./cmd/server
 ```
 
@@ -48,9 +51,16 @@ go run ./cmd/server
 
 ```bash
 go run ./cmd/music db status        # какие миграции применены
-go run ./cmd/music genres tree      # всё дерево жанров
-go run ./cmd/music genres tree rock # только ветка рока
+go run ./cmd/music genres tree rock # ветка рока в дереве жанров
+go run ./cmd/music stats            # сводка по библиотекам
+go run ./cmd/music import list      # история импортов
 ```
+
+Что должно получиться на примере: 29 строк выгрузки превращаются в 21 трек.
+Разница — дубли, которые схлопнула нормализация: `Nirvana`, `NIRVANA`
+и `  nirvana  ` это один исполнитель, а `Smells Like Teen Spirit`,
+`Smells Like Teen Spirit (Official Video)` и `smells like teen spirit [HD]` —
+один трек с тремя идентификаторами из источника.
 
 Проверка, что всё живо:
 
@@ -136,7 +146,8 @@ cmd/music/         утилита командной строки: миграц�
 internal/config/   все настройки из окружения в одном месте
 internal/storage/  подключение к базе, миграции, запросы
 internal/web/      маршруты и обработчики HTTP
-internal/sources/  сменные источники треков (с v0.4.0)
+internal/sources/  сменные источники треков: интерфейс и реализации
+internal/normalize/ приведение грязных строк к сравнимому виду
 internal/enrich/   добыча жанра из внешних справочников (с v0.7.0)
 migrations/        миграции схемы, встроены в бинарник
 data/              справочник жанров, растёт руками

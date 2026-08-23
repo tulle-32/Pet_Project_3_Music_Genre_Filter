@@ -23,10 +23,12 @@ import (
 	"strings"
 	"syscall"
 	"text/tabwriter"
+	"time"
 
 	"github.com/joho/godotenv"
 
 	"github.com/tulle-32/music-genre-filter/internal/config"
+	"github.com/tulle-32/music-genre-filter/internal/sources/file"
 	"github.com/tulle-32/music-genre-filter/internal/storage"
 )
 
@@ -44,13 +46,22 @@ const usage = `music — утилита управления Music Genre Filter
   seed genres [файл]          залить справочник жанров
                               (по умолчанию data/genre_map.json)
 
+  import file <путь>          загрузить треки из файла .json или .csv
+       [--library "Имя"]      в какую библиотеку класть
+                              (по умолчанию "Моя музыка")
+  import list                 история импортов
+
   genres tree [код]           показать дерево жанров
                               (без кода — всё дерево целиком)
+
+  stats                       сводка по библиотекам
 
 Примеры:
   music db up
   music seed genres
+  music import file data/samples/sample_tracks.json --library "Рус-Лан"
   music genres tree rock
+  music stats
 `
 
 func main() {
@@ -126,6 +137,29 @@ func run() error {
 			path = args[2]
 		}
 		return seedGenres(ctx, cfg, path)
+
+	case "import":
+		if len(args) < 2 {
+			return fmt.Errorf("после import нужно указать file или list")
+		}
+		switch args[1] {
+		case "file":
+			if len(args) < 3 {
+				return fmt.Errorf("укажи путь к файлу: music import file data/samples/sample_tracks.json")
+			}
+			path := args[2]
+			library := flagValue(args[3:], "--library", "Моя музыка")
+			return importFile(ctx, cfg, path, library)
+
+		case "list":
+			return importList(ctx, cfg)
+
+		default:
+			return fmt.Errorf("неизвестная команда import %q", args[1])
+		}
+
+	case "stats":
+		return showStats(ctx, cfg)
 
 	case "genres":
 		if len(args) < 2 || args[1] != "tree" {
@@ -212,5 +246,126 @@ func genresTree(ctx context.Context, cfg *config.Config, root string) error {
 	if root == "" {
 		fmt.Println("Показано всё дерево. Для одной ветки: music genres tree rock")
 	}
+	return nil
+}
+
+// flagValue достаёт значение флага из оставшихся аргументов.
+//
+// Понимает обе привычные записи: "--library Имя" и "--library=Имя".
+// Своя реализация вместо пакета flag нужна потому, что стандартный flag
+// требует, чтобы флаги шли ДО позиционных аргументов, а нам удобнее
+// писать путь к файлу первым: "import file dump.json --library X".
+func flagValue(args []string, name, fallback string) string {
+	for i, a := range args {
+		if a == name && i+1 < len(args) {
+			return args[i+1]
+		}
+		if strings.HasPrefix(a, name+"=") {
+			return strings.TrimPrefix(a, name+"=")
+		}
+	}
+	return fallback
+}
+
+// importFile загружает треки из файла в библиотеку.
+func importFile(ctx context.Context, cfg *config.Config, path, library string) error {
+	db, err := storage.New(ctx, cfg.Database.DSN(), cfg.Database.MaxConns)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	// Вот она, польза от интерфейса. Здесь создаётся файловый источник,
+	// но переменная src имеет тип TrackSource. Когда в v0.6.0 появится
+	// источник ВК, изменится ровно одна строка — та, что ниже. Всё
+	// остальное в этой функции и во всём импорте останется как есть.
+	src := file.New(path)
+
+	fmt.Printf("Читаю %s...\n", src.Ref())
+	raw, err := src.Fetch(ctx)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Прочитано строк: %d\n\n", len(raw))
+
+	fmt.Printf("Заливаю в библиотеку %q...\n", library)
+	res, err := db.ImportTracks(ctx, library, src, raw)
+	if err != nil {
+		return err
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintf(w, "\nСтрок в источнике:\t%d\n", res.FromSource)
+	fmt.Fprintf(w, "Повторов внутри файла:\t%d\n", res.Duplicates)
+	fmt.Fprintf(w, "Уникальных треков:\t%d\n", res.Unique)
+	fmt.Fprintf(w, "Из них новых в базе:\t%d\n", res.NewTracks)
+	fmt.Fprintf(w, "Новых исполнителей:\t%d\n", res.NewArtists)
+	fmt.Fprintf(w, "Пропали с прошлого раза:\t%d\n", res.Gone)
+	fmt.Fprintf(w, "Заняло:\t%s\n", res.Took.Round(time.Millisecond))
+	if err := w.Flush(); err != nil {
+		return err
+	}
+
+	fmt.Println("\nПовторный импорт того же файла ничего не сломает:")
+	fmt.Println("треки найдутся по ключу и просто обновят дату последней встречи.")
+	return nil
+}
+
+// importList печатает историю импортов.
+func importList(ctx context.Context, cfg *config.Config) error {
+	db, err := storage.New(ctx, cfg.Database.DSN(), cfg.Database.MaxConns)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	runs, err := db.ImportRuns(ctx, 20)
+	if err != nil {
+		return err
+	}
+	if len(runs) == 0 {
+		fmt.Println("Импортов ещё не было.")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "КОГДА\tБИБЛИОТЕКА\tИСТОЧНИК\tСТАТУС\tТРЕКОВ\tНОВЫХ\tПРОПАЛО")
+	for _, r := range runs {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\t%d\t%d\n",
+			r.StartedAt.Local().Format("02.01 15:04"),
+			r.Library, r.SourceName, r.Status,
+			r.TracksSeen, r.TracksNew, r.TracksGone)
+	}
+	return w.Flush()
+}
+
+// showStats печатает сводку по библиотекам.
+func showStats(ctx context.Context, cfg *config.Config) error {
+	db, err := storage.New(ctx, cfg.Database.DSN(), cfg.Database.MaxConns)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	stats, err := db.Stats(ctx)
+	if err != nil {
+		return err
+	}
+	if len(stats) == 0 {
+		fmt.Println("Библиотек ещё нет. Загрузи треки: music import file <путь>")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "БИБЛИОТЕКА\tТРЕКОВ\tИСПОЛНИТЕЛЕЙ\tС ЖАНРОМ\tПРОПАЛО")
+	for _, s := range stats {
+		fmt.Fprintf(w, "%s\t%d\t%d\t%d\t%d\n",
+			s.Title, s.Tracks, s.Artists, s.WithGenre, s.Gone)
+	}
+	if err := w.Flush(); err != nil {
+		return err
+	}
+
+	fmt.Println("\nКолонка «с жанром» пока нулевая — обогащение появится в v0.7.0.")
 	return nil
 }

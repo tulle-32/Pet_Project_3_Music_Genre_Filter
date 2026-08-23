@@ -1,0 +1,58 @@
+{
+  "_note": [
+    "Пример выгрузки для разработки и проверки.",
+    "",
+    "Файл намеренно грязный — примерно так и выглядят настоящие выгрузки:",
+    "разнобой в регистре, мусор в скобках, участники в поле исполнителя,",
+    "один и тот же трек по несколько раз в разных написаниях.",
+    "",
+    "Строк здесь 30, а уникальных треков после нормализации должно",
+    "получиться меньше. Разница и есть работа дедупликации.",
+    "",
+    "Поле _note разборщик игнорирует: он читает только массив tracks."
+  ],
+
+  "tracks": [
+    { "artist": "Nirvana",              "title": "Smells Like Teen Spirit",                      "duration": 301, "id": "1_101" },
+    { "artist": "NIRVANA",              "title": "Smells Like Teen Spirit (Official Video)",     "duration": 301, "id": "1_102" },
+    { "artist": "  nirvana  ",          "title": "smells like teen spirit [HD]",                 "duration": 0,   "id": "1_103" },
+    { "artist": "Nirvana",              "title": "Come As You Are (Remastered 2011)",            "duration": 219, "id": "1_104" },
+
+    { "artist": "Король и Шут",         "title": "Лесник",                                       "duration": 238, "id": "1_105" },
+    { "artist": "КОРОЛЬ И ШУТ",         "title": "Лесник (Official Video)",                      "duration": 238, "id": "1_106" },
+    { "artist": "Король и Шут",         "title": "Прыгну со скалы",                              "duration": 194, "id": "1_107" },
+
+    { "artist": "Сектор Газа",          "title": "Лирика",                                       "duration": 262, "id": "1_108" },
+    { "artist": "Сектор Газа",          "title": "Лирика | Клип",                                "duration": 262, "id": "1_109" },
+    { "artist": "Сектор Газа",          "title": "30 лет",                                       "duration": 245, "id": "1_110" },
+
+    { "artist": "Miyagi & Andy Panda",  "title": "Kosandra",                                     "duration": 218, "id": "1_111" },
+    { "artist": "Miyagi feat. Эндшпиль","title": "Санавабич",                                    "duration": 202, "id": "1_112" },
+    { "artist": "MiyaGi",               "title": "Kosandra (2020)",                              "duration": 218, "id": "1_113" },
+
+    { "artist": "Metallica",            "title": "Nothing Else Matters",                         "duration": 388, "id": "1_114" },
+    { "artist": "Metallica",            "title": "Enter Sandman - Official Music Video",         "duration": 331, "id": "1_115" },
+    { "artist": "METALLICA",            "title": "Nothing Else Matters (Remastered)",            "duration": 388, "id": "1_116" },
+
+    { "artist": "Daft Punk",            "title": "Get Lucky (feat. Pharrell Williams)",          "duration": 369, "id": "1_117" },
+    { "artist": "Daft Punk",            "title": "Around The World",                             "duration": 429, "id": "1_118" },
+
+    { "artist": "Björk",                "title": "Army Of Me",                                   "duration": 234, "id": "1_119" },
+    { "artist": "Bjork",                "title": "Army of Me [HQ]",                              "duration": 234, "id": "1_120" },
+
+    { "artist": "Ёлка",                 "title": "Прованс",                                      "duration": 217, "id": "1_121" },
+    { "artist": "Елка",                 "title": "Прованс (премьера)",                           "duration": 217, "id": "1_122" },
+
+    { "artist": "AC/DC",                "title": "Highway to Hell",                              "duration": 208, "id": "1_123" },
+    { "artist": "AC DC",                "title": "Highway To Hell (vk.com/rockmusic)",           "duration": 208, "id": "1_124" },
+
+    { "artist": "Кино",                 "title": "Группа крови",                                 "duration": 285, "id": "1_125" },
+    { "artist": "Кино",                 "title": "Пачка сигарет",                                "duration": 265, "id": "1_126" },
+
+    { "artist": "Eminem",               "title": "Lose Yourself",                                "duration": 326, "id": "1_127" },
+    { "artist": "Eminem ft. Rihanna",   "title": "Love The Way You Lie",                         "duration": 263, "id": "1_128" },
+
+    { "artist": "Пикник",               "title": "Мой рок",                                      "duration": 231, "id": "1_129" },
+    { "artist": "",                     "title": "",                                             "duration": 0,   "id": "1_130" }
+  ]
+}
