@@ -318,7 +318,7 @@ music-genre-filter/
 │   └── web/                 обработчики HTTP и шаблоны
 ├── migrations/              файлы goose, по одному на изменение схемы
 ├── scripts/
-│   ├── release.sh           коммит, тег и changelog одной командой
+│   ├── release.ps1          коммит и тег одной командой, текст из CHANGELOG
 │   ├── backup_db.sh
 │   └── restore_db.sh
 ├── data/
