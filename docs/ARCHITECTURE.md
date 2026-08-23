@@ -297,9 +297,10 @@ music-genre-filter/
 │   └── music/main.go        точка входа CLI
 ├── internal/
 │   ├── config/              чтение настроек из окружения
-│   ├── storage/             сгенерированный sqlc код + подключение
-│   │   ├── queries/*.sql    запросы, которые пишем руками
-│   │   └── gen/             то, что сгенерировал sqlc — не редактировать
+│   ├── storage/             всё про базу
+│   │   ├── db.go            пул соединений и проверка доступности
+│   │   ├── migrate.go       накат, откат и статус миграций
+│   │   └── genres.go        справочник жанров и обход дерева
 │   ├── sources/             ← сменные источники треков
 │   │   ├── source.go        интерфейс TrackSource и тип RawTrack
 │   │   ├── file/            источник из JSON и CSV
@@ -322,7 +323,7 @@ music-genre-filter/
 │   ├── backup_db.sh
 │   └── restore_db.sh
 ├── data/
-│   ├── genre_map.yml        справочник тег → жанр, растёт руками
+│   ├── genre_map.json       справочник тег → жанр, растёт руками
 │   └── samples/             выдуманный пример для разработки и тестов
 ├── docs/
 ├── docker-compose.yml

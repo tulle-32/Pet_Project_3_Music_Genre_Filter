@@ -1,0 +1,190 @@
+{
+  "_note": [
+    "Справочник жанров. Заливается в базу командой: music seed genres",
+    "",
+    "Структура: code — машинное имя, по нему обращаются запросы;",
+    "title_ru — как показывать человеку; aliases — теги, которые отдают",
+    "внешние справочники и которые надо считать этим жанром;",
+    "children — дочерние жанры, они автоматически попадают в выдачу родителя.",
+    "",
+    "Файл будет расти руками. Когда команда 'music genres unmapped' покажет",
+    "тег, который встречается часто, но не распознан, — его место здесь.",
+    "",
+    "Формат JSON, а не YAML, сознательно: разбор JSON есть в стандартной",
+    "библиотеке Go, а YAML потребовал бы отдельной зависимости ради файла,",
+    "который читается один раз при заливке."
+  ],
+
+  "genres": [
+    {
+      "code": "rock",
+      "title_ru": "Рок",
+      "aliases": ["rock", "рок", "rock music", "рок-музыка", "classic rock", "классический рок", "rock and roll", "rock'n'roll", "рок-н-ролл"],
+      "children": [
+        { "code": "hard_rock",        "title_ru": "Хард-рок",        "aliases": ["hard rock", "hard-rock", "hardrock", "хард-рок", "хардрок"] },
+        { "code": "punk_rock",        "title_ru": "Панк-рок",        "aliases": ["punk", "punk rock", "панк", "панк-рок", "pop punk", "поп-панк", "hardcore punk"] },
+        { "code": "alternative_rock", "title_ru": "Альтернатива",    "aliases": ["alternative", "alternative rock", "alt-rock", "альтернатива", "альтернативный рок"] },
+        { "code": "grunge",           "title_ru": "Гранж",           "aliases": ["grunge", "гранж", "post-grunge"] },
+        { "code": "indie_rock",       "title_ru": "Инди-рок",        "aliases": ["indie", "indie rock", "инди", "инди-рок"] },
+        { "code": "progressive_rock", "title_ru": "Прогрессив-рок",  "aliases": ["progressive rock", "prog rock", "прогрессив", "прог-рок"] },
+        { "code": "psychedelic_rock", "title_ru": "Психоделик-рок",  "aliases": ["psychedelic", "psychedelic rock", "психоделика", "psych rock"] },
+        { "code": "post_rock",        "title_ru": "Пост-рок",        "aliases": ["post-rock", "post rock", "пост-рок"] },
+        { "code": "russian_rock",     "title_ru": "Русский рок",     "aliases": ["russian rock", "русский рок", "русскій рок", "russrock"] }
+      ]
+    },
+
+    {
+      "code": "metal",
+      "title_ru": "Метал",
+      "aliases": ["metal", "метал", "металл", "heavy metal music"],
+      "children": [
+        { "code": "heavy_metal",  "title_ru": "Хеви-метал",   "aliases": ["heavy metal", "хеви-метал", "хэви-метал"] },
+        { "code": "thrash_metal", "title_ru": "Трэш-метал",   "aliases": ["thrash metal", "thrash", "трэш-метал", "трэш"] },
+        { "code": "death_metal",  "title_ru": "Дэт-метал",    "aliases": ["death metal", "дэт-метал", "melodic death metal", "мелодик-дэт"] },
+        { "code": "black_metal",  "title_ru": "Блэк-метал",   "aliases": ["black metal", "блэк-метал", "блек-метал"] },
+        { "code": "doom_metal",   "title_ru": "Дум-метал",    "aliases": ["doom metal", "doom", "дум-метал", "sludge"] },
+        { "code": "power_metal",  "title_ru": "Пауэр-метал",  "aliases": ["power metal", "пауэр-метал"] },
+        { "code": "metalcore",    "title_ru": "Металкор",     "aliases": ["metalcore", "металкор", "deathcore", "дэткор"] },
+        { "code": "nu_metal",     "title_ru": "Ню-метал",     "aliases": ["nu metal", "nu-metal", "ню-метал", "рэпкор", "rapcore"] }
+      ]
+    },
+
+    {
+      "code": "hip_hop",
+      "title_ru": "Хип-хоп",
+      "aliases": ["hip-hop", "hip hop", "хип-хоп", "хипхоп", "rap", "рэп", "реп"],
+      "children": [
+        { "code": "trap",            "title_ru": "Трэп",            "aliases": ["trap", "трэп", "трап", "drill", "дрилл"] },
+        { "code": "russian_rap",     "title_ru": "Русский рэп",     "aliases": ["russian rap", "русский рэп", "русский хип-хоп", "russian hip-hop"] },
+        { "code": "old_school_rap",  "title_ru": "Олдскул-рэп",     "aliases": ["old school hip hop", "old school rap", "олдскул", "boom bap", "бумбап"] },
+        { "code": "cloud_rap",       "title_ru": "Клауд-рэп",       "aliases": ["cloud rap", "клауд-рэп", "emo rap", "эмо-рэп"] },
+        { "code": "grime",           "title_ru": "Грайм",           "aliases": ["grime", "грайм"] }
+      ]
+    },
+
+    {
+      "code": "electronic",
+      "title_ru": "Электроника",
+      "aliases": ["electronic", "electronica", "электроника", "electro", "электро", "edm", "idm"],
+      "children": [
+        { "code": "house",          "title_ru": "Хаус",           "aliases": ["house", "хаус", "deep house", "дип-хаус", "tech house", "progressive house"] },
+        { "code": "techno",         "title_ru": "Техно",          "aliases": ["techno", "техно", "minimal techno", "hard techno"] },
+        { "code": "trance",         "title_ru": "Транс",          "aliases": ["trance", "транс", "psytrance", "psy-trance", "psychedelic trance", "uplifting trance"] },
+        { "code": "drum_and_bass",  "title_ru": "Драм-н-бэйс",    "aliases": ["drum and bass", "drum n bass", "dnb", "d&b", "драм-н-бэйс", "джангл", "jungle", "liquid funk"] },
+        { "code": "dubstep",        "title_ru": "Дабстеп",        "aliases": ["dubstep", "дабстеп", "brostep", "riddim"] },
+        { "code": "ambient",        "title_ru": "Эмбиент",        "aliases": ["ambient", "эмбиент", "chillout", "чилаут", "downtempo", "lo-fi", "lofi", "лоу-фай"] },
+        { "code": "synthwave",      "title_ru": "Синтвейв",       "aliases": ["synthwave", "синтвейв", "retrowave", "ретровейв", "vaporwave", "darksynth"] },
+        { "code": "breakbeat",      "title_ru": "Брейкбит",       "aliases": ["breakbeat", "брейкбит", "big beat", "breaks"] },
+        { "code": "hardstyle",      "title_ru": "Хардстайл",      "aliases": ["hardstyle", "хардстайл", "hardcore techno", "gabber", "габбер"] }
+      ]
+    },
+
+    {
+      "code": "pop",
+      "title_ru": "Поп",
+      "aliases": ["pop", "поп", "pop music", "поп-музыка", "popular"],
+      "children": [
+        { "code": "synth_pop",   "title_ru": "Синти-поп",   "aliases": ["synthpop", "synth-pop", "синти-поп", "new wave", "новая волна", "electropop", "электропоп"] },
+        { "code": "indie_pop",   "title_ru": "Инди-поп",    "aliases": ["indie pop", "инди-поп", "dream pop", "bedroom pop"] },
+        { "code": "dance_pop",   "title_ru": "Дэнс-поп",    "aliases": ["dance pop", "dance", "дэнс", "танцевальная", "eurodance", "евродэнс", "disco", "диско"] },
+        { "code": "k_pop",       "title_ru": "K-pop",       "aliases": ["k-pop", "kpop", "к-поп", "j-pop", "jpop"] },
+        { "code": "russian_pop", "title_ru": "Русская поп-музыка", "aliases": ["russian pop", "русская попса", "русский поп", "эстрада"] }
+      ]
+    },
+
+    {
+      "code": "rnb_soul",
+      "title_ru": "R&B и соул",
+      "aliases": ["r&b", "rnb", "rhythm and blues", "ритм-н-блюз"],
+      "children": [
+        { "code": "soul",             "title_ru": "Соул",             "aliases": ["soul", "соул", "neo-soul", "нео-соул", "motown"] },
+        { "code": "funk",             "title_ru": "Фанк",             "aliases": ["funk", "фанк", "g-funk", "funk rock"] },
+        { "code": "contemporary_rnb", "title_ru": "Современный R&B",  "aliases": ["contemporary r&b", "современный r&b", "alternative r&b"] }
+      ]
+    },
+
+    {
+      "code": "jazz",
+      "title_ru": "Джаз",
+      "aliases": ["jazz", "джаз", "jazz music"],
+      "children": [
+        { "code": "bebop",        "title_ru": "Бибоп",       "aliases": ["bebop", "бибоп", "hard bop", "swing", "свинг"] },
+        { "code": "smooth_jazz",  "title_ru": "Смус-джаз",   "aliases": ["smooth jazz", "смус-джаз", "lounge", "лаунж"] },
+        { "code": "jazz_fusion",  "title_ru": "Джаз-фьюжн",  "aliases": ["jazz fusion", "fusion", "фьюжн", "acid jazz", "эйсид-джаз"] }
+      ]
+    },
+
+    {
+      "code": "blues",
+      "title_ru": "Блюз",
+      "aliases": ["blues", "блюз"],
+      "children": [
+        { "code": "blues_rock",     "title_ru": "Блюз-рок",         "aliases": ["blues rock", "блюз-рок"] },
+        { "code": "electric_blues", "title_ru": "Электрический блюз", "aliases": ["electric blues", "chicago blues", "delta blues"] }
+      ]
+    },
+
+    {
+      "code": "folk",
+      "title_ru": "Фолк",
+      "aliases": ["folk", "фолк", "folk music", "world music", "этника", "ethnic"],
+      "children": [
+        { "code": "folk_rock",         "title_ru": "Фолк-рок",       "aliases": ["folk rock", "фолк-рок", "folk metal", "фолк-метал"] },
+        { "code": "singer_songwriter", "title_ru": "Авторская песня", "aliases": ["singer-songwriter", "авторская песня", "бард", "бардовская песня", "acoustic", "акустика"] },
+        { "code": "russian_folk",      "title_ru": "Русский фолк",    "aliases": ["russian folk", "русский фолк", "народная", "народная музыка"] }
+      ]
+    },
+
+    {
+      "code": "classical",
+      "title_ru": "Классика",
+      "aliases": ["classical", "classical music", "классика", "классическая музыка"],
+      "children": [
+        { "code": "opera",     "title_ru": "Опера",           "aliases": ["opera", "опера", "vocal", "оперная музыка"] },
+        { "code": "baroque",   "title_ru": "Барокко",         "aliases": ["baroque", "барокко", "romantic", "романтизм"] },
+        { "code": "piano",     "title_ru": "Фортепианная",    "aliases": ["piano", "фортепиано", "solo piano", "neoclassical", "неоклассика"] }
+      ]
+    },
+
+    {
+      "code": "reggae",
+      "title_ru": "Регги",
+      "aliases": ["reggae", "регги"],
+      "children": [
+        { "code": "ska", "title_ru": "Ска",  "aliases": ["ska", "ска", "ska punk", "ска-панк", "rocksteady"] },
+        { "code": "dub", "title_ru": "Даб",  "aliases": ["dub", "даб", "dancehall", "дэнсхолл"] }
+      ]
+    },
+
+    {
+      "code": "chanson",
+      "title_ru": "Шансон",
+      "aliases": ["chanson", "шансон", "русский шансон", "russian chanson", "блатная песня"],
+      "children": []
+    },
+
+    {
+      "code": "soundtrack",
+      "title_ru": "Саундтреки",
+      "aliases": ["soundtrack", "саундтрек", "ost", "score", "музыка из фильмов"],
+      "children": [
+        { "code": "film_score",  "title_ru": "Музыка из кино", "aliases": ["film score", "cinematic", "epic", "trailer music"] },
+        { "code": "game_music",  "title_ru": "Музыка из игр",  "aliases": ["video game music", "game soundtrack", "chiptune", "8-bit", "музыка из игр"] }
+      ]
+    },
+
+    {
+      "code": "spoken",
+      "title_ru": "Речь",
+      "aliases": ["spoken word", "audiobook", "аудиокнига", "podcast", "подкаст", "стендап", "юмор", "comedy"],
+      "children": []
+    },
+
+    {
+      "code": "other",
+      "title_ru": "Прочее",
+      "aliases": ["other", "прочее", "unknown", "разное"],
+      "children": []
+    }
+  ]
+}
