@@ -54,6 +54,15 @@ go run ./cmd/music db status        # какие миграции примене
 go run ./cmd/music genres tree rock # ветка рока в дереве жанров
 go run ./cmd/music stats            # сводка по библиотекам
 go run ./cmd/music import list      # история импортов
+go run ./cmd/music library list     # точные названия библиотек
+```
+
+Опечатался в названии библиотеки при импорте (бывает, набирали руками)?
+Поправить, ничего не переимпортируя:
+
+```bash
+go run ./cmd/music library list                       # посмотреть, как записано на самом деле
+go run ./cmd/music library rename "ус-ан" "Рус-Лан"    # переименовать точно
 ```
 
 Что должно получиться на примере: 29 строк выгрузки превращаются в 21 трек.

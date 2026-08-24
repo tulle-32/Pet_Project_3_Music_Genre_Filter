@@ -51,6 +51,11 @@ const usage = `music — утилита управления Music Genre Filter
                               (по умолчанию "Моя музыка")
   import list                 история импортов
 
+  library list                показать точные названия библиотек
+  library rename <старое> <новое>
+                              переименовать библиотеку (например,
+                              если опечатался при импорте)
+
   genres tree [код]           показать дерево жанров
                               (без кода — всё дерево целиком)
 
@@ -60,6 +65,8 @@ const usage = `music — утилита управления Music Genre Filter
   music db up
   music seed genres
   music import file data/samples/sample_tracks.json --library "Рус-Лан"
+  music library list
+  music library rename "ус-ан" "Рус-Лан"
   music genres tree rock
   music stats
 `
@@ -156,6 +163,25 @@ func run() error {
 
 		default:
 			return fmt.Errorf("неизвестная команда import %q", args[1])
+		}
+
+	case "library":
+		if len(args) < 2 {
+			return fmt.Errorf("после library нужно указать list или rename")
+		}
+		switch args[1] {
+		case "list":
+			return libraryList(ctx, cfg)
+
+		case "rename":
+			if len(args) < 4 {
+				return fmt.Errorf(
+					`нужно два названия: music library rename "старое" "новое"`)
+			}
+			return libraryRename(ctx, cfg, args[2], args[3])
+
+		default:
+			return fmt.Errorf("неизвестная команда library %q", args[1])
 		}
 
 	case "stats":
@@ -337,6 +363,60 @@ func importList(ctx context.Context, cfg *config.Config) error {
 			r.TracksSeen, r.TracksNew, r.TracksGone)
 	}
 	return w.Flush()
+}
+
+// libraryList печатает точные названия всех библиотек.
+//
+// Появилась именно из-за опечаток: в терминале "Рус-Лан" и "ус-ан" видно
+// сразу, а вот "Рус-Лан" и "Рус-лан" (строчная "л") на глаз почти не
+// различить. Здесь названия просто печатаются как есть, без выравнивания
+// "на глаз" — если нужно увидеть невидимые пробелы, название можно
+// обернуть в кавычки в самом терминале.
+func libraryList(ctx context.Context, cfg *config.Config) error {
+	db, err := storage.New(ctx, cfg.Database.DSN(), cfg.Database.MaxConns)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	libs, err := db.Libraries(ctx)
+	if err != nil {
+		return err
+	}
+	if len(libs) == 0 {
+		fmt.Println("Библиотек ещё нет. Загрузи треки: music import file <путь>")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "ID\tНАЗВАНИЕ\tИСТОЧНИК\tСОЗДАНА")
+	for _, l := range libs {
+		fmt.Fprintf(w, "%d\t%q\t%s\t%s\n",
+			l.ID, l.Title, l.SourceName, l.CreatedAt.Local().Format("02.01.2006 15:04"))
+	}
+	return w.Flush()
+}
+
+// libraryRename переименовывает библиотеку.
+//
+// Название нужно указывать ТОЧНО так, как оно лежит в базе — команда
+// сознательно не пытается угадывать и не ищет похожие варианты (почему —
+// см. комментарий у storage.RenameLibrary). Если не уверен, как оно
+// записано на самом деле: music library list.
+func libraryRename(ctx context.Context, cfg *config.Config, oldTitle, newTitle string) error {
+	db, err := storage.New(ctx, cfg.Database.DSN(), cfg.Database.MaxConns)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	if err := db.RenameLibrary(ctx, oldTitle, newTitle); err != nil {
+		return err
+	}
+
+	fmt.Printf("Готово: %q → %q.\n", oldTitle, newTitle)
+	fmt.Println("Треки и жанры внутри библиотеки не тронуты — изменилось только название.")
+	return nil
 }
 
 // showStats печатает сводку по библиотекам.
