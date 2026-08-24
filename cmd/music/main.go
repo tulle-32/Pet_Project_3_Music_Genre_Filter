@@ -71,11 +71,7 @@ const usage = `music — утилита управления Music Genre Filter
   music stats
 `
 
-func main(
-	
-)
-
-{
+func main() {
 	if err := run(); err != nil {
 		fmt.Fprintf(os.Stderr, "\nОшибка: %v\n", err)
 		os.Exit(1)
