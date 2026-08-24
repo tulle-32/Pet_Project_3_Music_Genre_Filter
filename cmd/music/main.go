@@ -49,6 +49,9 @@ const usage = `music — утилита управления Music Genre Filter
   import file <путь>          загрузить треки из файла .json или .csv
        [--library "Имя"]      в какую библиотеку класть
                               (по умолчанию "Моя музыка")
+                              треки из ВК тоже приходят сюда — файлом,
+                              который выгружает расширение браузера
+                              extension/ (Р-016, docs/VK_ACCESS.md)
   import list                 история импортов
 
   library list                показать точные названия библиотек
@@ -65,6 +68,7 @@ const usage = `music — утилита управления Music Genre Filter
   music db up
   music seed genres
   music import file data/samples/sample_tracks.json --library "Рус-Лан"
+  music import file tracks.json --library "Рус-Лан"
   music library list
   music library rename "ус-ан" "Рус-Лан"
   music genres tree rock
