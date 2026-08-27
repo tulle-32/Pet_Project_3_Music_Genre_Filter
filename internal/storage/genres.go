@@ -3,9 +3,12 @@ package storage
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // Здесь всё про справочник жанров: заливка из файла и чтение дерева.
@@ -266,6 +269,61 @@ ORDER BY t.path;
 		return nil, fmt.Errorf("жанр с кодом %q не найден", rootCode)
 	}
 	return result, nil
+}
+
+// ---------------------------------------------------------------------------
+// Обогащение: поиск жанра по тегу провайдера и запись результата
+// ---------------------------------------------------------------------------
+
+// ResolveAlias ищет жанр по тегу (alias_key).
+//
+// aliasKey должен прийти уже нормализованным (нижний регистр, обрезанные
+// пробелы) — той же нормализацией, что и при заливке справочника (см.
+// SeedGenres выше). Это реализация интерфейса taxonomy.AliasResolver
+// (internal/taxonomy/taxonomy.go) — сам пакет taxonomy ничего не знает
+// про SQL, только про эту сигнатуру.
+//
+// Тег не найден — не ошибка, а нормальный исход: у провайдеров полно
+// тегов вроде "seen live" или "favourite", которых в справочнике никогда
+// не будет. Поэтому "не нашли" выражено вторым возвращаемым значением,
+// а не через err.
+func (db *DB) ResolveAlias(ctx context.Context, aliasKey string) (genreID int32, found bool, err error) {
+	err = db.Pool.QueryRow(ctx,
+		`SELECT genre_id FROM genre_aliases WHERE alias_key = $1`, aliasKey,
+	).Scan(&genreID)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, false, nil
+		}
+		return 0, false, fmt.Errorf("поиск жанра по тегу %q: %w", aliasKey, err)
+	}
+	return genreID, true, nil
+}
+
+// UpsertArtistGenre записывает (или обновляет) мнение ОДНОГО провайдера
+// об ОДНОМ жанре ОДНОГО исполнителя — одну строку artist_genres.
+//
+// ON CONFLICT DO UPDATE — по той же причине, что и везде в этом файле:
+// повторное обогащение того же исполнителя тем же провайдером (например,
+// после истечения кэша) должно ОБНОВИТЬ уверенность, а не упасть на
+// нарушении первичного ключа (artist_id, genre_id, provider) — оно как раз
+// и существует для того, чтобы у каждого провайдера было ровно одно мнение
+// на пару исполнитель-жанр, а не накапливались дубли от каждого прогона.
+func (db *DB) UpsertArtistGenre(ctx context.Context, artistID int64, genreID int32, provider string, confidence float64) error {
+	_, err := db.Pool.Exec(ctx, `
+		INSERT INTO artist_genres (artist_id, genre_id, provider, confidence, updated_at)
+		VALUES ($1, $2, $3, $4, now())
+		ON CONFLICT (artist_id, genre_id, provider) DO UPDATE
+		  SET confidence = EXCLUDED.confidence,
+		      updated_at = now()
+	`, artistID, genreID, provider, confidence)
+	if err != nil {
+		return fmt.Errorf(
+			"запись жанра исполнителя (artist_id=%d, genre_id=%d, provider=%s): %w",
+			artistID, genreID, provider, err)
+	}
+	return nil
 }
 
 // CountGenres возвращает, сколько жанров и псевдонимов сейчас в базе.

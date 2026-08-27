@@ -17,9 +17,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"text/tabwriter"
@@ -28,6 +30,9 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/tulle-32/music-genre-filter/internal/config"
+	"github.com/tulle-32/music-genre-filter/internal/enrich"
+	"github.com/tulle-32/music-genre-filter/internal/enrich/lastfm"
+	"github.com/tulle-32/music-genre-filter/internal/normalize"
 	"github.com/tulle-32/music-genre-filter/internal/sources/file"
 	"github.com/tulle-32/music-genre-filter/internal/storage"
 )
@@ -62,6 +67,14 @@ const usage = `music — утилита управления Music Genre Filter
   genres tree [код]           показать дерево жанров
                               (без кода — всё дерево целиком)
 
+  enrich run                  определить жанры исполнителей через Last.fm
+       [--limit N]            обработать не больше N исполнителей за прогон
+                              (по умолчанию — все, у кого есть треки)
+                              требует LASTFM_API_KEY в .env; если ты в
+                              России — включи VPN перед запуском (Р-017,
+                              docs/DECISIONS.md)
+  enrich list                 история прогонов обогащения
+
   stats                       сводка по библиотекам
 
 Примеры:
@@ -72,6 +85,7 @@ const usage = `music — утилита управления Music Genre Filter
   music library list
   music library rename "ус-ан" "Рус-Лан"
   music genres tree rock
+  music enrich run --limit 50
   music stats
 `
 
@@ -186,6 +200,29 @@ func run() error {
 
 		default:
 			return fmt.Errorf("неизвестная команда library %q", args[1])
+		}
+
+	case "enrich":
+		if len(args) < 2 {
+			return fmt.Errorf("после enrich нужно указать run или list")
+		}
+		switch args[1] {
+		case "run":
+			limit := 0 // 0 = без ограничения
+			if v := flagValue(args[2:], "--limit", ""); v != "" {
+				n, err := strconv.Atoi(v)
+				if err != nil {
+					return fmt.Errorf("--limit должен быть числом, получили %q", v)
+				}
+				limit = n
+			}
+			return enrichRun(ctx, cfg, limit)
+
+		case "list":
+			return enrichList(ctx, cfg)
+
+		default:
+			return fmt.Errorf("неизвестная команда enrich %q", args[1])
 		}
 
 	case "stats":
@@ -423,6 +460,164 @@ func libraryRename(ctx context.Context, cfg *config.Config, oldTitle, newTitle s
 	return nil
 }
 
+// enrichCourtesyDelay — пауза между сетевыми запросами к Last.fm.
+//
+// Last.fm нигде не публикует числовой лимит запросов в секунду — в
+// документации так и написано: ограничения применяются "на усмотрение"
+// сервиса. Явного числа нет, поэтому взята разумная осторожная пауза,
+// а не "сколько выдержит сеть": так прогон на сотни исполнителей не
+// выглядит для чужого сервера атакой и не рискует словить бан по IP
+// (что было бы куда хуже одной лишней ошибки ErrAccessDenied).
+//
+// Пауза выдерживается только после НАСТОЯЩЕГО сетевого запроса — если
+// ответ пришёл из кэша (res.FromCache), ждать незачем, сеть и так не
+// использовалась.
+const enrichCourtesyDelay = 250 * time.Millisecond
+
+// enrichRun обходит исполнителей библиотек и определяет им жанры через
+// Last.fm: кэш → провайдер → теги → уверенность (internal/enrich).
+//
+// limit == 0 значит "без ограничения — обработать всех". Ограничение
+// удобно для первого пробного прогона на маленьком куске, прежде чем
+// запускать на всей библиотеке.
+func enrichRun(ctx context.Context, cfg *config.Config, limit int) error {
+	if cfg.LastFM.APIKey == "" {
+		return fmt.Errorf(
+			"не задан LASTFM_API_KEY — добавь ключ в .env " +
+				"(как получить ключ: docs/DECISIONS.md, раздел про Last.fm)")
+	}
+
+	db, err := storage.New(ctx, cfg.Database.DSN(), cfg.Database.MaxConns)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	artists, err := db.ListArtists(ctx)
+	if err != nil {
+		return err
+	}
+	if limit > 0 && limit < len(artists) {
+		artists = artists[:limit]
+	}
+	if len(artists) == 0 {
+		fmt.Println("Обогащать некого: нет исполнителей с треками в библиотеках.")
+		return nil
+	}
+
+	fmt.Printf("Исполнителей к обработке: %d\n", len(artists))
+	fmt.Println("Если ты в России — проверь, включён ли VPN (Р-017, docs/DECISIONS.md).")
+	fmt.Println()
+
+	runID, err := db.StartEnrichRun(ctx)
+	if err != nil {
+		return err
+	}
+
+	provider := lastfm.New(cfg.LastFM.APIKey)
+	stats := storage.EnrichRunStats{ArtistsTotal: len(artists)}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "ИСПОЛНИТЕЛЬ\tЖАНРОВ\tИСТОЧНИК")
+
+	var abortErr error
+	for i, a := range artists {
+		if err := ctx.Err(); err != nil {
+			abortErr = err
+			break
+		}
+
+		artistName := normalize.PrimaryArtist(a.NameRaw)
+		res, err := enrich.EnrichArtist(ctx, provider, db, db, db, a.ID, artistName, a.NameKey)
+		if err != nil {
+			// ErrAccessDenied (Р-017) — не проблема КОНКРЕТНОГО исполнителя,
+			// а состояние всей сети целиком (пропал VPN и т.п.). Продолжать
+			// перебирать остальных исполнителей в этом случае бессмысленно:
+			// каждый следующий вызов провалится точно так же, а квоту
+			// запросов и время мы потратим впустую. Поэтому прогон
+			// прерывается сразу, а не тонет в сотне одинаковых ошибок.
+			if errors.Is(err, lastfm.ErrAccessDenied) {
+				abortErr = err
+				break
+			}
+
+			stats.ArtistsFailed++
+			fmt.Fprintf(w, "%s\tошибка\t%v\n", a.NameRaw, err)
+			continue
+		}
+
+		stats.ArtistsEnriched++
+		if res.FromCache {
+			stats.CacheHits++
+		} else {
+			stats.APICalls++
+		}
+
+		source := "сеть"
+		if res.FromCache {
+			source = "кэш"
+		}
+		fmt.Fprintf(w, "%s\t%d\t%s\n", a.NameRaw, res.MatchedGenres, source)
+
+		// Пауза только после настоящего сетевого запроса и только если
+		// это не последний исполнитель — незачем ждать после самого
+		// последнего вызова, дальше всё равно делать нечего.
+		if !res.FromCache && i < len(artists)-1 {
+			time.Sleep(enrichCourtesyDelay)
+		}
+	}
+	if err := w.Flush(); err != nil {
+		return err
+	}
+
+	status := "ok"
+	errText := ""
+	if abortErr != nil {
+		status = "failed"
+		errText = abortErr.Error()
+	}
+	if err := db.FinishEnrichRun(ctx, runID, status, stats, errText); err != nil {
+		return err
+	}
+
+	fmt.Printf("\nОбработано: %d, обогащено: %d, ошибок: %d.\n",
+		stats.ArtistsTotal, stats.ArtistsEnriched, stats.ArtistsFailed)
+	fmt.Printf("Запросов в сеть: %d, из кэша: %d.\n", stats.APICalls, stats.CacheHits)
+
+	if abortErr != nil {
+		return fmt.Errorf("прогон прерван: %w", abortErr)
+	}
+	return nil
+}
+
+// enrichList печатает историю прогонов обогащения.
+func enrichList(ctx context.Context, cfg *config.Config) error {
+	db, err := storage.New(ctx, cfg.Database.DSN(), cfg.Database.MaxConns)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	runs, err := db.EnrichRuns(ctx, 20)
+	if err != nil {
+		return err
+	}
+	if len(runs) == 0 {
+		fmt.Println("Обогащений ещё не было. Запусти: music enrich run")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "КОГДА\tСТАТУС\tВСЕГО\tОБОГАЩЕНО\tОШИБОК\tСЕТЬ\tКЭШ")
+	for _, r := range runs {
+		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%d\t%d\t%d\n",
+			r.StartedAt.Local().Format("02.01 15:04"), r.Status,
+			r.ArtistsTotal, r.ArtistsEnriched, r.ArtistsFailed,
+			r.APICalls, r.CacheHits)
+	}
+	return w.Flush()
+}
+
 // showStats печатает сводку по библиотекам.
 func showStats(ctx context.Context, cfg *config.Config) error {
 	db, err := storage.New(ctx, cfg.Database.DSN(), cfg.Database.MaxConns)
@@ -450,6 +645,6 @@ func showStats(ctx context.Context, cfg *config.Config) error {
 		return err
 	}
 
-	fmt.Println("\nКолонка «с жанром» пока нулевая — обогащение появится в v0.7.0.")
+	fmt.Println("\nЕсли «с жанром» меньше «исполнителей» — запусти: music enrich run")
 	return nil
 }

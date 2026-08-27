@@ -160,7 +160,10 @@
       "code": "chanson",
       "title_ru": "Шансон",
       "aliases": ["chanson", "шансон", "русский шансон", "russian chanson", "блатная песня"],
-      "children": []
+      "children": [
+        { "code": "soviet_pop", "title_ru": "Советская эстрада", "aliases": ["soviet pop", "советская эстрада", "советская музыка"] },
+        { "code": "via",        "title_ru": "ВИА",               "aliases": ["виа", "via", "вокально-инструментальный ансамбль"] }
+      ]
     },
 
     {
