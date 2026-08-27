@@ -300,7 +300,7 @@
 		].join(';');
 
 		const title = document.createElement('div');
-		title.textContent = 'Music Genre Filter — сбор треков';
+		title.textContent = 'Tulle Music Genre Filter — сбор треков';
 		title.style.cssText = 'font-weight:600';
 
 		statusEl = document.createElement('div');

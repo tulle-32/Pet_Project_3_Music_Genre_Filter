@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tulle-32/music-genre-filter/internal/sources"
+	"github.com/tulle-32/Pet_Project_3_Music_Genre_Filter/internal/sources"
 )
 
 // Source — источник треков из файла.

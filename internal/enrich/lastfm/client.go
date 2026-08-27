@@ -19,7 +19,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/tulle-32/music-genre-filter/internal/enrich"
+	"github.com/tulle-32/Pet_Project_3_Music_Genre_Filter/internal/enrich"
 )
 
 // defaultBaseURL — адрес API. Вынесен в константу, а не зашит в код запроса,

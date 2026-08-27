@@ -24,9 +24,9 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"github.com/tulle-32/music-genre-filter/internal/config"
-	"github.com/tulle-32/music-genre-filter/internal/storage"
-	"github.com/tulle-32/music-genre-filter/internal/web"
+	"github.com/tulle-32/Pet_Project_3_Music_Genre_Filter/internal/config"
+	"github.com/tulle-32/Pet_Project_3_Music_Genre_Filter/internal/storage"
+	"github.com/tulle-32/Pet_Project_3_Music_Genre_Filter/internal/web"
 )
 
 // version — версия сборки. Значение можно подменить при компиляции

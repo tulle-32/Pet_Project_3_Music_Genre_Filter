@@ -8,8 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/tulle-32/music-genre-filter/internal/normalize"
-	"github.com/tulle-32/music-genre-filter/internal/sources"
+	"github.com/tulle-32/Pet_Project_3_Music_Genre_Filter/internal/normalize"
+	"github.com/tulle-32/Pet_Project_3_Music_Genre_Filter/internal/sources"
 )
 
 // Здесь живёт импорт: превращение сырого списка треков в записи базы.

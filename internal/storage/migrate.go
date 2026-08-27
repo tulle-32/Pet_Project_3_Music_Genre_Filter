@@ -8,7 +8,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib" // регистрирует драйвер "pgx" в database/sql
 	"github.com/pressly/goose/v3"
 
-	"github.com/tulle-32/music-genre-filter/migrations"
+	"github.com/tulle-32/Pet_Project_3_Music_Genre_Filter/migrations"
 )
 
 // Здесь живёт всё, что связано с миграциями схемы.

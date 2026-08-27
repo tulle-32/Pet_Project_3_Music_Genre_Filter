@@ -29,12 +29,12 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"github.com/tulle-32/music-genre-filter/internal/config"
-	"github.com/tulle-32/music-genre-filter/internal/enrich"
-	"github.com/tulle-32/music-genre-filter/internal/enrich/lastfm"
-	"github.com/tulle-32/music-genre-filter/internal/normalize"
-	"github.com/tulle-32/music-genre-filter/internal/sources/file"
-	"github.com/tulle-32/music-genre-filter/internal/storage"
+	"github.com/tulle-32/Pet_Project_3_Music_Genre_Filter/internal/config"
+	"github.com/tulle-32/Pet_Project_3_Music_Genre_Filter/internal/enrich"
+	"github.com/tulle-32/Pet_Project_3_Music_Genre_Filter/internal/enrich/lastfm"
+	"github.com/tulle-32/Pet_Project_3_Music_Genre_Filter/internal/normalize"
+	"github.com/tulle-32/Pet_Project_3_Music_Genre_Filter/internal/sources/file"
+	"github.com/tulle-32/Pet_Project_3_Music_Genre_Filter/internal/storage"
 )
 
 // usage — текст справки. Печатается без аргументов и при ошибке.
@@ -75,6 +75,15 @@ const usage = `music — утилита управления Music Genre Filter
                               docs/DECISIONS.md)
   enrich list                 история прогонов обогащения
 
+  filter <код-жанра>          показать треки библиотеки по жанру
+       --library "Имя"        (обязательно — какую библиотеку смотрим)
+       [--min 0.15]           минимальная уверенность, 0..1
+                              (по умолчанию 0.15 — с одним провайдером
+                              Last.fm 0.50 из docs/ARCHITECTURE.md
+                              недостижимо, см. Р-018/Р-019 в DECISIONS.md)
+                              поджанры попадают в выдачу автоматически:
+                              "rock" заодно приносит punk_rock, hard_rock и т.д.
+
   stats                       сводка по библиотекам
 
 Примеры:
@@ -86,6 +95,7 @@ const usage = `music — утилита управления Music Genre Filter
   music library rename "ус-ан" "Рус-Лан"
   music genres tree rock
   music enrich run --limit 50
+  music filter rock --library "Рус-Лан"
   music stats
 `
 
@@ -224,6 +234,25 @@ func run() error {
 		default:
 			return fmt.Errorf("неизвестная команда enrich %q", args[1])
 		}
+
+	case "filter":
+		if len(args) < 2 {
+			return fmt.Errorf("укажи код жанра: music filter rock --library \"Имя\"")
+		}
+		genreCode := args[1]
+		library := flagValue(args[2:], "--library", "")
+		if library == "" {
+			return fmt.Errorf(`нужна библиотека: music filter %s --library "Имя" (точные названия: music library list)`, genreCode)
+		}
+		minConfidence := defaultMinConfidence
+		if v := flagValue(args[2:], "--min", ""); v != "" {
+			f, err := strconv.ParseFloat(v, 64)
+			if err != nil {
+				return fmt.Errorf("--min должен быть числом от 0 до 1, получили %q", v)
+			}
+			minConfidence = f
+		}
+		return filterTracks(ctx, cfg, genreCode, library, minConfidence)
 
 	case "stats":
 		return showStats(ctx, cfg)
@@ -646,5 +675,67 @@ func showStats(ctx context.Context, cfg *config.Config) error {
 	}
 
 	fmt.Println("\nЕсли «с жанром» меньше «исполнителей» — запусти: music enrich run")
+	return nil
+}
+
+// filterTracks печатает треки библиотеки, относящиеся к жанру genreCode
+// (вместе со всеми его поджанрами) с уверенностью не ниже minConfidence.
+//
+// Это и есть исходная задача всего проекта: вставил жанр → получил список.
+// Пока без экспорта в файл или плейлист — только терминал; печатать в файл
+// можно и обычным перенаправлением шелла (`> список.txt`), отдельная логика
+// экспорта для этого не нужна.
+// defaultMinConfidence — порог уверенности по умолчанию для `music filter`.
+//
+// В docs/ARCHITECTURE.md записан порог 0.50 — но он рассчитан на формулу
+// с ТРЕМЯ провайдерами сразу (musicbrainz 0.50 + lastfm 0.35 + deezer 0.15,
+// сумма). После Р-018 (docs/DECISIONS.md) реализован только Last.fm с весом
+// 0.35 — то есть 0.50 физически недостижимо: ни один тег никогда не наберёт
+// такую уверенность, и `filter` с порогом по умолчанию находил бы ноль
+// треков всегда, при любых данных. Это не тонкая настройка, а прямая
+// поломка команды.
+//
+// 0.15 — компромисс для одного провайдера: у Last.fm вес тега (count)
+// нормирован так, что топовый тег исполнителя получает 100, а более редкие
+// тегом — меньше. Порог 0.15 соответствует тегу с весом ~43 из 100 и выше —
+// то есть заметному, а не случайному тегу, но не обязательно САМОМУ
+// популярному. Число подобрано на глаз, а не выведено из данных: если на
+// практике фильтр будет находить слишком много (или слишком мало) —
+// поправить можно на месте флагом --min, без пересборки.
+const defaultMinConfidence = 0.15
+
+func filterTracks(ctx context.Context, cfg *config.Config, genreCode, library string, minConfidence float64) error {
+	db, err := storage.New(ctx, cfg.Database.DSN(), cfg.Database.MaxConns)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	tracks, err := db.FilterTracks(ctx, library, genreCode, minConfidence)
+	if err != nil {
+		return err
+	}
+	if len(tracks) == 0 {
+		fmt.Printf("Ничего не нашлось: жанр %q, библиотека %q, уверенность ≥ %.2f.\n",
+			genreCode, library, minConfidence)
+		fmt.Println("Возможные причины: обогащение ещё не запускалось (music enrich run)," +
+			" порог слишком высокий (--min пониже), или в библиотеке правда нет такого жанра.")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "ИСПОЛНИТЕЛЬ\tТРЕК\tДЛИТЕЛЬНОСТЬ\tУВЕРЕННОСТЬ")
+	for _, t := range tracks {
+		duration := "—"
+		if t.DurationSec > 0 {
+			duration = fmt.Sprintf("%d:%02d", t.DurationSec/60, t.DurationSec%60)
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\t%.2f\n", t.Artist, t.Title, duration, t.Confidence)
+	}
+	if err := w.Flush(); err != nil {
+		return err
+	}
+
+	fmt.Printf("\nНайдено треков: %d.\n", len(tracks))
 	return nil
 }

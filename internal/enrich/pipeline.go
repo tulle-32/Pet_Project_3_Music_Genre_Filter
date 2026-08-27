@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tulle-32/music-genre-filter/internal/taxonomy"
+	"github.com/tulle-32/Pet_Project_3_Music_Genre_Filter/internal/taxonomy"
 )
 
 // CacheTTL — срок жизни записи в provider_cache, после которого пайплайн

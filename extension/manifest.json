@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Music Genre Filter — выгрузка ВК",
+  "name": "Tulle Music Genre Filter",
   "version": "1.0.0",
   "description": "Собирает список треков со страницы ВК прямо внутри твоей открытой вкладки и отдаёт файл JSON для 'music import file' (см. docs/DECISIONS.md, Р-016).",
 
